@@ -67,7 +67,7 @@ public class HivePartitionStream implements Closeable {
         if (m_batch == null || m_batch.remainingTransactions() == 0)  try {
 
             oldBatch = m_batch;
-            int attemptsLeft = 3;
+            int attemptsLeft = 4;
             TransactionBatchUnAvailable retriedException = null;
 
             ATTEMPT_LOOP: while (--attemptsLeft >= 0) try {
