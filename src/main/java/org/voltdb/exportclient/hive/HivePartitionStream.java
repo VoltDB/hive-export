@@ -11,12 +11,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.hive.hcatalog.streaming.ConnectionError;
 import org.apache.hive.hcatalog.streaming.HiveEndPoint;
-import org.apache.hive.hcatalog.streaming.ImpersonationFailed;
-import org.apache.hive.hcatalog.streaming.InvalidPartition;
-import org.apache.hive.hcatalog.streaming.InvalidTable;
-import org.apache.hive.hcatalog.streaming.PartitionCreationFailed;
 import org.apache.hive.hcatalog.streaming.StreamingConnection;
 import org.apache.hive.hcatalog.streaming.StreamingException;
 import org.apache.hive.hcatalog.streaming.StrictJsonWriter;
@@ -31,27 +26,29 @@ public class HivePartitionStream implements Closeable {
     final static int HIVE_TRANSACTION_BATCH_SIZE =
             Integer.getInteger("HIVE_TRANSACTION_BATCH_SIZE", 64);
 
-    final HiveEndPoint m_endPoint;
     final HiveConf m_conf;
+    HiveEndPoint m_endPoint;
     StreamingConnection m_connection;
+    StrictJsonWriter m_writer;
     TransactionBatch m_batch;
 
     public HivePartitionStream(HiveEndPoint endPoint) {
         m_conf = new HiveConf(HivePartitionStream.class);
         m_conf.setVar(HiveConf.ConfVars.METASTOREURIS, endPoint.metaStoreUri);
-        m_endPoint = endPoint;
 
-        connect();
+        connect(endPoint);
         checkBatch();
     }
 
-    protected void connect() {
+    protected void connect(HiveEndPoint ep) {
+        m_endPoint = new HiveEndPoint(
+                ep.metaStoreUri, ep.database, ep.table, ep.partitionVals
+                );
         try {
             // TODO: may need to pass user impersonation
             m_connection = m_endPoint.newConnection(true, m_conf);
-        } catch (ConnectionError | InvalidPartition | InvalidTable
-                | PartitionCreationFailed | ImpersonationFailed
-                | InterruptedException e) {
+            m_writer = new StrictJsonWriter(m_endPoint, m_conf);
+        } catch (InterruptedException | StreamingException e) {
             String msg = "failed to connect to: %s";
             LOG.error(msg, e, m_endPoint);
             throw new HiveExportException(msg, e, m_endPoint);
@@ -63,27 +60,35 @@ public class HivePartitionStream implements Closeable {
     }
 
     private void checkBatch() {
-        TransactionBatch oldBatch = null;
         if (m_batch == null || m_batch.remainingTransactions() == 0)  try {
 
-            oldBatch = m_batch;
+            if (m_batch != null) try {
+                m_batch.close();
+            } catch (Exception ignoreIt) {
+            } finally {
+                m_batch = null;
+            }
+
             int attemptsLeft = 4;
             TransactionBatchUnAvailable retriedException = null;
 
             ATTEMPT_LOOP: while (--attemptsLeft >= 0) try {
+
                 m_batch = m_connection.fetchTransactionBatch(
-                        HIVE_TRANSACTION_BATCH_SIZE,
-                        new StrictJsonWriter(m_endPoint)
+                        HIVE_TRANSACTION_BATCH_SIZE, m_writer
                         );
+
                 retriedException = null;
                 break ATTEMPT_LOOP;
+
             } catch (TransactionBatchUnAvailable e) {
+
                 retriedException = e;
                 if (attemptsLeft > 0) {
                     Thread.sleep(30);
                 } else {
-                    close(); oldBatch = null;
-                    connect();
+                    close();
+                    connect(m_endPoint);
                 }
             }
             if (retriedException != null) {
@@ -94,10 +99,6 @@ public class HivePartitionStream implements Closeable {
             String msg = "failed to get transaction batch for %s";
             LOG.error(msg, e, m_endPoint);
             throw new HiveExportException(msg, e, m_endPoint);
-        } finally {
-            if (oldBatch != null) try {
-                oldBatch.close();
-            } catch (Exception ignoreIt) {}
         }
     }
 
@@ -106,7 +107,6 @@ public class HivePartitionStream implements Closeable {
         if (m_batch != null) try {
             m_batch.close();
         } catch (Exception ignoreIt) {
-
         } finally {
             m_batch = null;
         }
@@ -114,6 +114,7 @@ public class HivePartitionStream implements Closeable {
             m_connection.close();
         } catch (Exception ignoreIt) {
         } finally {
+            m_writer = null;
             m_connection = null;
         }
     }
@@ -140,7 +141,7 @@ public class HivePartitionStream implements Closeable {
                 retriedException = e;
 
                 close();
-                connect();
+                connect(m_endPoint);
                 checkBatch();
             }
             if (retriedException != null) {
