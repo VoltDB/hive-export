@@ -28,8 +28,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 import org.json_voltpatches.JSONException;
+import org.voltcore.utils.CoreUtils;
 import org.voltdb.VoltDB;
 import org.voltdb.export.AdvertisedDataSource;
 import org.voltdb.exportclient.ExportClientBase;
@@ -39,6 +41,7 @@ import com.google_voltpatches.common.base.Splitter;
 import com.google_voltpatches.common.collect.ImmutableList;
 import com.google_voltpatches.common.collect.ImmutableMultimap;
 import com.google_voltpatches.common.collect.Multimap;
+import com.google_voltpatches.common.util.concurrent.ListeningExecutorService;
 
 public class HiveExportClient extends ExportClientBase {
 
@@ -121,9 +124,14 @@ public class HiveExportClient extends ExportClientBase {
     class HiveExportDecoder extends ExportDecoderBase {
         boolean m_primed = false;
         StreamingHiveDecoder m_decoder;
+        final ListeningExecutorService m_es;
 
         public HiveExportDecoder(AdvertisedDataSource ds) {
             super(ds);
+            m_es = CoreUtils.getListeningSingleThreadExecutor(
+                    "Hive Export decoder for partition " + ds.partitionId
+                    + " table " + ds.tableName
+                    + " generation " + ds.m_generation, CoreUtils.MEDIUM_STACK_SIZE);
         }
 
         final void checkOnFirstRow() throws RestartBlockException {
@@ -152,6 +160,11 @@ public class HiveExportClient extends ExportClientBase {
                 LOG.error("Unable to initialize decoder for %s", e, m_endPointFactory);
                 throw new RestartBlockException("unable to initialze decoder", e, true);
             }
+        }
+
+        @Override
+        public ListeningExecutorService getExecutor() {
+            return m_es;
         }
 
         @Override
@@ -184,6 +197,12 @@ public class HiveExportClient extends ExportClientBase {
 
         @Override
         public void sourceNoLongerAdvertised(AdvertisedDataSource source) {
+            m_es.shutdown();
+            try {
+                m_es.awaitTermination(365, TimeUnit.DAYS);
+            } catch (InterruptedException e) {
+                throw new HiveExportException("Interrupted while awaiting executor shutdown", e);
+            }
         }
     }
 
