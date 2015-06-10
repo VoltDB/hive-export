@@ -99,7 +99,7 @@ END_OF_EXPORT
 When a row is inserted into the export table
 
 ```sql
-INSERT INTO ALERTS (ID,MSG,CONTINENT,COUNTRY) VALUES (1,'fab-02 inoperable','EU','IT);
+INSERT INTO ALERTS (ID,MSG,CONTINENT,COUNTRY) VALUES (1,'fab-02 inoperable','EU','IT');
 ```
 
 The continent ('EU') and country ('IT') column values are used to
