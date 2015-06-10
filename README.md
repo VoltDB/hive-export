@@ -36,7 +36,7 @@ gradle shadowJar
 * To setup eclipse projects run gradle as follows
 
 ```bash
-shell$ gradle cleanEclipse eclipse
+gradle cleanEclipse eclipse
 ```
 then import them into your eclipse workspace by using File->Import projects menu option
 
@@ -65,8 +65,8 @@ then import them into your eclipse workspace by using File->Import projects menu
 </deployment>
 ```
 
-This tells VoltDB to write to the alerts table on Hive via the
-homonymous export table in VoltDB using columns CONTINENT and COUNTRY
+This tells VoltDB to write to the alerts table on Hive, via the
+homonymous export table in VoltDB, using columns CONTINENT and COUNTRY
 as value providers for Hive partitions discerners. For example the
 alerts table is defined in Hive as:
 
@@ -105,12 +105,12 @@ INSERT INTO ALERTS (ID,MSG,CONTINENT,COUNTRY) VALUES (1,'fab-02 inoperable','EU'
 The continent ('EU') and country ('IT') column values are used to
 specify the Hive table partition.
 
-* Configuration Properties
+## Configuration Properties
 
-- `hive.uri` (mandatory) thrift url to the Hive host
+- `hive.uri` (mandatory) thrift URI to the Hive host
 - `hive.db`  (mandatory) Hive database
 - `hive.table` (mandatory) Hive table
-- `hive.partition.columns` (mandatory if the hive table is partitioned) _format:_ table-1:column-1|column-2|...|column-n,table-2:column-1|column-2|...|column-n,...,table-n:column-1|column-2|...|column-n
+- `hive.partition.columns` (mandatory if the hive table is partitioned) format: _table-1:column-1|column-2|...|column-n,table-2:column-1|column-2|...|column-n,...,table-n:column-1|column-2|...|column-n_
 - `timezone` (optional, _default:_ local timezone) timezone used to format timestamp values
 
 Partition columns must be of type VARCHAR. Any empty or null partition column values are converted to `__VoltDB_unspecified__`
