@@ -65,7 +65,7 @@ public class HiveSink {
     }
 
     ListenableFuture<?> asWriteTask(final HiveEndPoint endPoint, final Collection<String> records) {
-        final int hashed = endPoint.partitionVals.hashCode() % HIVE_CONCURRENT_WRITERS;
+        final int hashed = ((endPoint.partitionVals.hashCode() % HIVE_CONCURRENT_WRITERS) + HIVE_CONCURRENT_WRITERS) % HIVE_CONCURRENT_WRITERS; // Always return non negative modulus [0..HHIVE_CONCURRENT_WRITERS-1]
         if (m_executors.get(hashed).isShutdown()) {
             return Futures.immediateFailedFuture(new HiveExportException("hive sink executor is shut down"));
         }
