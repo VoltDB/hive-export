@@ -114,4 +114,8 @@ public class HiveConnectionPool {
                 Preconditions.checkNotNull(value, "null value")
                 );
     }
+
+    public void nudge() {
+        m_pool.cleanUp();;
+    }
 }

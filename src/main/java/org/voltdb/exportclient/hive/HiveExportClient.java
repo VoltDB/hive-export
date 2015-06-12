@@ -197,6 +197,7 @@ public class HiveExportClient extends ExportClientBase {
 
         @Override
         public void sourceNoLongerAdvertised(AdvertisedDataSource source) {
+            getSink().nudge();
             m_es.shutdown();
             try {
                 m_es.awaitTermination(365, TimeUnit.DAYS);
@@ -208,6 +209,7 @@ public class HiveExportClient extends ExportClientBase {
 
     @Override
     public ExportDecoderBase constructExportDecoder(AdvertisedDataSource source) {
+        getSink().nudge();
         return new HiveExportDecoder(source);
     }
 }

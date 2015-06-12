@@ -104,4 +104,8 @@ public class HiveSink {
             throw new HiveExportException(msg, e, records);
         }
     }
+
+    public void nudge() {
+        m_pool.nudge();
+    }
 }
