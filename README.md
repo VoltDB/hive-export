@@ -33,12 +33,12 @@ echo voltdbhome=/voltdb/home/dirname > gradle.properties
 gradle shadowJar
 ```
 
-* To setup eclipse projects run gradle as follows
+* To setup an eclipse project run gradle as follows
 
 ```bash
 gradle cleanEclipse eclipse
 ```
-then import them into your eclipse workspace by using File->Import projects menu option
+then import it into your eclipse workspace by using File->Import projects menu option
 
 ## Configuration
 
