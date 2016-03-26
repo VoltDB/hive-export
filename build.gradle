@@ -26,7 +26,7 @@ plugins {
   id 'groovy'
   id 'java'
   id 'eclipse'
-  id 'com.github.johnrengelman.shadow' version '1.2.1'
+  id 'com.github.johnrengelman.shadow' version '1.2.3'
 }
 
 description = 'VoltDB Hive export conduit'
