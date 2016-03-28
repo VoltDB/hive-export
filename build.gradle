@@ -57,6 +57,7 @@ dependencies {
         exclude group:'log4j'
     }
 
+    export ('commons-cli:commons-cli:1.2') { transitive = true }
     export ('commons-pool:commons-pool:1.6') { transitive = true }
     export ('commons-collections:commons-collections:3.2.1') { transitive = true }
     export ('commons-lang:commons-lang:2.6') { transitive = true }
