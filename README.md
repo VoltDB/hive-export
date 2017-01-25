@@ -54,7 +54,7 @@ then import it into your eclipse workspace by using File->Import projects menu o
         <jsonapi enabled="true" />
     </httpd>
     <export>
-        <configuration stream="default" enabled="true" type="custom"
+        <configuration stream="hive" enabled="true" type="custom"
             exportconnectorclass="org.voltdb.exportclient.hive.HiveExportClient">
             <property name="hive.uri">thrift://hive-host:9083</property>
             <property name="hive.db">meco</property>
@@ -82,16 +82,12 @@ while the VoltDB export table is defined as:
 ```sql
 FILE -inlinebatch END_OF_EXPORT
 
-create table alerts (
+create stream alerts partitioned on column id export to target hive (
   id integer not null,
   msg varchar(128),
   continent varchar(64),
   country varchar(64)
 )
-;
-partition table alerts on column id
-;
-export table alerts
 ;
 END_OF_EXPORT
 ```
