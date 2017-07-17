@@ -24,9 +24,13 @@
 
 package org.voltdb.exportclient.hive;
 
+import java.util.List;
+
+import org.voltdb.VoltType;
+import org.voltdb.exportclient.decode.v2.BatchDecoder;
+
 import org.apache.hive.hcatalog.streaming.HiveEndPoint;
 import org.json_voltpatches.JSONException;
-import org.voltdb.exportclient.decode.BatchDecoder;
 
 import com.google_voltpatches.common.base.Preconditions;
 import com.google_voltpatches.common.collect.ImmutableMultimap;
@@ -42,20 +46,19 @@ public class StreamingHiveDecoder implements BatchDecoder<Multimap<HiveEndPoint,
     }
 
     @Override
-    public void add(Object[] fields) throws JSONException {
-        m_partitionedDecoder.decode(m_map, fields);
+    public void add(long generation, String tableName, List<VoltType> types, List<String> names, Object[] fields) throws JSONException {
+        m_partitionedDecoder.decode(generation, tableName, types, names, m_map, fields);
     }
 
     @Override
-    public Multimap<HiveEndPoint, String> harvest() {
+    public Multimap<HiveEndPoint, String> harvest(long generationIgnored) {
         Multimap<HiveEndPoint, String> harvested = m_map.build();
         m_map = ImmutableMultimap.builder();
         return harvested;
     }
 
     @Override
-    public void discard() {
-    }
+    public void discard(long genertionIgnored) { }
 
     public static Builder builder() {
         return new Builder();
