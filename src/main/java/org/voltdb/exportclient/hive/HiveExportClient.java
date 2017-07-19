@@ -131,9 +131,7 @@ public class HiveExportClient extends ExportClientBase {
         public HiveExportDecoder(AdvertisedDataSource ds) {
             super(ds);
             m_es = CoreUtils.getListeningSingleThreadExecutor(
-                    "Hive Export decoder for partition " + ds.partitionId
-                    + " table " + ds.tableName
-                    + " generation " + ds.m_generation, CoreUtils.MEDIUM_STACK_SIZE);
+                    "Hive Export decoder for partition " + ds.partitionId, CoreUtils.MEDIUM_STACK_SIZE);
         }
 
         final void checkOnFirstRow(ExportRowData row) throws RestartBlockException {
