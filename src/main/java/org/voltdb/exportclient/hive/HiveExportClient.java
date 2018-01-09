@@ -24,18 +24,20 @@
 
 package org.voltdb.exportclient.hive;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
-import org.json_voltpatches.JSONException;
 import org.voltcore.utils.CoreUtils;
+
 import org.voltdb.VoltDB;
 import org.voltdb.export.AdvertisedDataSource;
 import org.voltdb.exportclient.ExportClientBase;
 import org.voltdb.exportclient.ExportDecoderBase;
+import org.voltdb.exportclient.ExportRowData;
+
+import org.json_voltpatches.JSONException;
 
 import com.google_voltpatches.common.base.Splitter;
 import com.google_voltpatches.common.collect.ImmutableList;
@@ -129,19 +131,17 @@ public class HiveExportClient extends ExportClientBase {
         public HiveExportDecoder(AdvertisedDataSource ds) {
             super(ds);
             m_es = CoreUtils.getListeningSingleThreadExecutor(
-                    "Hive Export decoder for partition " + ds.partitionId
-                    + " table " + ds.tableName
-                    + " generation " + ds.m_generation, CoreUtils.MEDIUM_STACK_SIZE);
+                    "Hive Export decoder for partition " + ds.partitionId, CoreUtils.MEDIUM_STACK_SIZE);
         }
 
-        final void checkOnFirstRow() throws RestartBlockException {
+        final void checkOnFirstRow(ExportRowData row) throws RestartBlockException {
             if (!m_primed) try {
                 List<String> partitionColumnNames = ImmutableList.copyOf(
-                        m_hivePartitionColumns.get(m_source.tableName.toUpperCase())
+                        m_hivePartitionColumns.get(row.tableName.toUpperCase())
                         );
                 if (m_hivePartionCount > 0 && partitionColumnNames.isEmpty()) {
                     throw new IllegalArgumentException(
-                            "table " + m_source.tableName + " is not listed in the \""
+                            "table " + row.tableName + " is not listed in the \""
                                     + HIVE_PARTITION_COLUMNS_PN + "\" configuration property");
                 }
                 StreamingHiveDecoder.Builder builder = StreamingHiveDecoder.builder();
@@ -150,11 +150,14 @@ public class HiveExportClient extends ExportClientBase {
                     .partitionColumnNames(partitionColumnNames)
                     .timeZone(m_timeZone)
                     .camelCaseFieldNames(false)
-                    .columnNames(m_source.columnNames)
-                    .columnTypes(m_source.columnTypes)
                     .skipInternalFields(true)
                 ;
                 m_decoder = builder.build();
+
+                String threadName = "Hive Export decoder for partition " + row.partitionId
+                        + " table " + row.tableName + " generation " + row.generation;
+                Thread.currentThread().setName(threadName);
+
                 m_primed = true;
             } catch (IllegalArgumentException e) {
                 LOG.error("Unable to initialize decoder for %s", e, m_endPointFactory);
@@ -168,17 +171,22 @@ public class HiveExportClient extends ExportClientBase {
         }
 
         @Override
-        public void onBlockStart() throws RestartBlockException {
-            if (!m_primed) checkOnFirstRow();
+        public void onBlockStart(ExportRowData row) throws RestartBlockException {
+            if (!m_primed) {
+                checkOnFirstRow(row);
+            }
         }
 
         @Override
-        public boolean processRow(int rowSize, byte[] rowData) throws RestartBlockException {
-            if (!m_primed) checkOnFirstRow();
+        public boolean processRow(ExportRowData data) throws RestartBlockException {
+            if (!m_primed) {
+                checkOnFirstRow(data);
+            }
 
             try {
-                m_decoder.add(decodeRow(rowData).values);
-            } catch (IOException|JSONException e) {
+                m_decoder.add(data.generation, data.tableName, data.types, data.names, data.values);
+            }
+            catch (JSONException e) {
                 // non restartable structural failure
                 LOG.error("Unable to decode notification", e);
                 return false;
@@ -187,9 +195,9 @@ public class HiveExportClient extends ExportClientBase {
         }
 
         @Override
-        public void onBlockCompletion() throws RestartBlockException {
+        public void onBlockCompletion(ExportRowData data) throws RestartBlockException {
             try {
-                getSink().write(m_decoder.harvest());
+                getSink().write(m_decoder.harvest(data.generation));
             } catch (HiveExportException e) {
                 throw new RestartBlockException("Hive write fault", e, true);
             }
